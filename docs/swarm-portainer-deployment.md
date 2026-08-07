@@ -34,6 +34,12 @@ docker push $REGISTRY/lilibag-web:$VERSION
 
 O frontend precisa ser recompilado se a URL da API mudar.
 
+### Fluxo recomendado: GitHub Container Registry
+
+A GitHub Action publica automaticamente as imagens em GHCR. Veja
+[Imagens para o Portainer](github-container-registry.md). Para producao, use
+sempre uma tag imutavel `sha-...` emitida pela Action, nunca `latest`.
+
 ## Docker Secrets
 
 Crie estes secrets no manager. Os valores nunca devem estar no YAML, no Git,
