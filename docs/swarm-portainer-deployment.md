@@ -36,9 +36,9 @@ O frontend precisa ser recompilado se a URL da API mudar.
 
 ### Fluxo recomendado: GitHub Container Registry
 
-A GitHub Action publica automaticamente as imagens em GHCR. Veja
-[Imagens para o Portainer](github-container-registry.md). Para producao, use
-sempre uma tag imutavel `sha-...` emitida pela Action, nunca `latest`.
+A GitHub Action publishes the images to GHCR automatically. See
+[Images for Portainer](github-container-registry.md). For production, always
+use an immutable `sha-...` tag created by the Action, never `latest`.
 
 ## Docker Secrets
 
