@@ -1,0 +1,26 @@
+{
+  "name": "lilibag-messaging-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "env:local": "node scripts/create-local-env.mjs",
+    "env:production": "node scripts/create-production-env.mjs",
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:status": "docker compose ps",
+    "infra:down": "docker compose down",
+    "dev:api": "npm run dev --workspace @lilibag/api",
+    "dev:worker": "npm run dev:worker --workspace @lilibag/api",
+    "dev:web": "npm run dev --workspace @lilibag/web",
+    "build": "npm run build --workspaces",
+    "start": "npm run start --workspace @lilibag/api",
+    "start:worker": "npm run start:worker --workspace @lilibag/api",
+    "db:migrate": "npm run db:migrate --workspace @lilibag/api",
+    "db:bootstrap": "npm run db:bootstrap --workspace @lilibag/api"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+!deploy/.env.production.example
+!deploy/.env.swarm.example
+coverage
+*.log

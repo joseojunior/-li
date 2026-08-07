@@ -1,0 +1,133 @@
+version: "3.9"
+
+services:
+  migrate:
+    image: ${LILIBAG_API_IMAGE:?set LILIBAG_API_IMAGE}
+    command: node apps/api/dist/db/migrate.js
+    environment: &api_environment
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      API_BODY_LIMIT_BYTES: ${API_BODY_LIMIT_BYTES:-1048576}
+      API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX:-300}
+      WEBHOOK_RATE_LIMIT_MAX: ${WEBHOOK_RATE_LIMIT_MAX:-1200}
+      WEB_APP_ORIGIN: ${WEB_APP_ORIGIN:?set WEB_APP_ORIGIN}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:?set APP_PUBLIC_URL}
+      WEBHOOK_PUBLIC_URL: ${WEBHOOK_PUBLIC_URL:?set WEBHOOK_PUBLIC_URL}
+      AUTH_SESSION_TTL_DAYS: ${AUTH_SESSION_TTL_DAYS:-14}
+      CONVERSATION_DEBOUNCE_MS: ${CONVERSATION_DEBOUNCE_MS:-5000}
+      CONVERSATION_LOCK_TTL_MS: ${CONVERSATION_LOCK_TTL_MS:-45000}
+      CONVERSATION_WORKER_CONCURRENCY: ${CONVERSATION_WORKER_CONCURRENCY:-20}
+      OUTBOUND_WORKER_CONCURRENCY: ${OUTBOUND_WORKER_CONCURRENCY:-30}
+      TRACE_WORKER_CONCURRENCY: ${TRACE_WORKER_CONCURRENCY:-50}
+      DATABASE_URL_FILE: /run/secrets/lilibag_database_url
+      REDIS_URL_FILE: /run/secrets/lilibag_redis_url
+      INBOUND_WEBHOOK_SECRET_FILE: /run/secrets/lilibag_inbound_webhook_secret
+      ADMIN_API_KEY_FILE: /run/secrets/lilibag_admin_api_key
+      DATA_ENCRYPTION_KEY_FILE: /run/secrets/lilibag_data_encryption_key
+    secrets: &api_secrets
+      - source: lilibag_database_url
+        target: lilibag_database_url
+      - source: lilibag_redis_url
+        target: lilibag_redis_url
+      - source: lilibag_inbound_webhook_secret
+        target: lilibag_inbound_webhook_secret
+      - source: lilibag_admin_api_key
+        target: lilibag_admin_api_key
+      - source: lilibag_data_encryption_key
+        target: lilibag_data_encryption_key
+    networks: [LilibagNet]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: none
+
+  api:
+    image: ${LILIBAG_API_IMAGE:?set LILIBAG_API_IMAGE}
+    environment: *api_environment
+    secrets: *api_secrets
+    networks: [LilibagNet]
+    deploy:
+      replicas: 2
+      update_config:
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=LilibagNet
+        - traefik.http.routers.lilibag-api.rule=Host(`api.lilibag.online`)
+        - traefik.http.routers.lilibag-api.entrypoints=websecure
+        - traefik.http.routers.lilibag-api.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.lilibag-api.service=lilibag-api
+        - traefik.http.services.lilibag-api.loadbalancer.server.port=3000
+        - traefik.http.routers.lilibag-webhooks.rule=Host(`webhooks.lilibag.online`) && PathPrefix(`/v1/webhooks/`)
+        - traefik.http.routers.lilibag-webhooks.entrypoints=websecure
+        - traefik.http.routers.lilibag-webhooks.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.lilibag-webhooks.service=lilibag-api
+
+  worker:
+    image: ${LILIBAG_API_IMAGE:?set LILIBAG_API_IMAGE}
+    command: node apps/api/dist/worker.js
+    environment: *api_environment
+    secrets: *api_secrets
+    networks: [LilibagNet]
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+  web:
+    image: ${LILIBAG_WEB_IMAGE:?set LILIBAG_WEB_IMAGE}
+    networks: [LilibagNet]
+    deploy:
+      replicas: 2
+      update_config:
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=LilibagNet
+        - traefik.http.routers.lilibag-app.rule=Host(`app.lilibag.online`)
+        - traefik.http.routers.lilibag-app.entrypoints=websecure
+        - traefik.http.routers.lilibag-app.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.lilibag-app.service=lilibag-web
+        - traefik.http.services.lilibag-web.loadbalancer.server.port=80
+
+networks:
+  LilibagNet:
+    external: true
+    name: LilibagNet
+
+secrets:
+  lilibag_database_url:
+    external: true
+  lilibag_redis_url:
+    external: true
+  lilibag_inbound_webhook_secret:
+    external: true
+  lilibag_admin_api_key:
+    external: true
+  lilibag_data_encryption_key:
+    external: true

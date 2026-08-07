@@ -1,0 +1,35 @@
+{
+  "name": "@lilibag/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:worker": "tsx watch src/worker.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:bootstrap": "tsx src/db/bootstrap-local.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.750.0",
+    "@aws-sdk/s3-request-presigner": "^3.750.0",
+    "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.1.0",
+    "@fastify/rate-limit": "^11.2.0",
+    "@openai/agents": "^0.14.3",
+    "bullmq": "^5.40.2",
+    "dotenv": "^16.5.0",
+    "fastify": "^5.2.1",
+    "ioredis": "^5.5.0",
+    "pg": "^8.13.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "@types/pg": "^8.11.11",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

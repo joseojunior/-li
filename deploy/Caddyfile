@@ -1,0 +1,21 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+  encode zstd gzip
+
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+
+  @api path /v1/* /health /ready
+  reverse_proxy @api api:3000
+
+  root * /srv
+  try_files {path} /index.html
+  file_server
+}
