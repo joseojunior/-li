@@ -45,7 +45,12 @@ const app = Fastify({
     }
   }
 });
-await app.register(cors, { origin: config.WEB_APP_ORIGIN, credentials: true });
+await app.register(cors, {
+  origin: config.WEB_APP_ORIGIN,
+  credentials: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['content-type']
+});
 await app.register(helmet, {
   contentSecurityPolicy: false,
   hsts: config.NODE_ENV === 'production' ? { maxAge: 31_536_000, includeSubDomains: true } : false

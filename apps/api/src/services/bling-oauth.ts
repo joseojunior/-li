@@ -40,6 +40,7 @@ type ConnectionStatusRow = {
 
 type PublicConnectionStatus = {
   status: 'not_configured' | 'pending' | 'active' | 'disabled' | 'error';
+  redirectUri?: string;
   clientIdHint?: string;
   accessTokenExpiresAt?: string | null;
   createdAt?: string;
@@ -83,7 +84,7 @@ export async function getBlingConnectionStatus(organizationId: string): Promise<
        FROM bling_connections WHERE organization_id = $1`,
     [organizationId]
   );
-  return result.rowCount ? toPublicConnectionStatus(result.rows[0]) : { status: 'not_configured' };
+  return result.rowCount ? toPublicConnectionStatus(result.rows[0]) : { status: 'not_configured', redirectUri: publicRedirectUri() };
 }
 
 export async function beginBlingAuthorization(organizationId: string): Promise<{ authorizationUrl: string; expiresAt: string }> {
@@ -227,9 +228,14 @@ function toPublicConnectionStatus(connection: ConnectionStatusRow): PublicConnec
   const visibleSuffix = connection.client_id.slice(-6);
   return {
     status: connection.status,
+    redirectUri: publicRedirectUri(),
     clientIdHint: `••••••${visibleSuffix}`,
     accessTokenExpiresAt: connection.access_token_expires_at?.toISOString() ?? null,
     createdAt: connection.created_at.toISOString(),
     updatedAt: connection.updated_at.toISOString()
   };
+}
+
+function publicRedirectUri(): string | undefined {
+  try { return configuredRedirectUri(); } catch { return undefined; }
 }

@@ -173,6 +173,7 @@ label small, .muted, .page-description { color: var(--lili-muted); }
 .channel-create, .channel-connection, .webhook-result, .bling-credentials,
 .bling-connection-state, .bling-sync-panel, .sync-history { border-color: var(--lili-line); }
 .channel-row.selected { background: #eee7f9; }
+.bling-redirect-guide { background: #fbfafe; border: 1px solid #e4dcec; border-radius: 12px; color: var(--lili-navy); display: grid; font-size: 11px; gap: 8px; line-height: 1.5; padding: 12px; }.bling-redirect-guide > div { align-items: center; display: grid; gap: 9px; grid-template-columns: minmax(0, 1fr) auto; }.bling-redirect-guide code { color: #4e4070; font-family: "DM Mono", ui-monospace, monospace; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.bling-redirect-guide small { color: var(--lili-muted); font-size: 10px; }.bling-redirect-guide .button { min-height: 34px; padding: 6px 10px; }
 .channel-row:hover { background: var(--lili-lilac); }
 .webhook-result { background: #f6fbf8; border-color: #d5ebdf; }
 .webhook-url { border-color: #d6e7de; border-radius: 12px; }
@@ -218,4 +219,5 @@ label small, .muted, .page-description { color: var(--lili-muted); }
   .inbox-grid, .product-card, .integration-list article, .trace-list,
   .bling-integration, .channel-integration { border-radius: 14px; }
   .chatai-tag-sync { align-items: stretch; flex-direction: column; }.chatai-tag-sync .button { width: 100%; }
+  .bling-redirect-guide > div { grid-template-columns: 1fr; }.bling-redirect-guide .button { width: 100%; }
 }
