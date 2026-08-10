@@ -23,7 +23,8 @@ import { ingestInbound, inboundMessageSchema } from './services/inbound.js';
 import { completeProductUpload, createProductUploadIntent, productUploadIntentSchema } from './services/media-assets.js';
 import { outboundMessageSchema, queueOutboundMessage } from './services/outbound.js';
 import { ensureLilibagPlaybook, getLilibagPlaybook } from './services/lilibag-playbook.js';
-import { agentConfigurationInputSchema, agentKeySchema, getAiConfiguration, openAiKeyInputSchema, promptTestInputSchema, saveOpenAiKey, testAgentPrompt, updateAgentConfiguration } from './services/agent-configuration.js';
+import { agentConfigurationInputSchema, agentKeySchema, agentPromptVersionInputSchema, getAiConfiguration, openAiKeyInputSchema, promptTestInputSchema, saveOpenAiKey, testAgentPrompt, updateAgentConfiguration } from './services/agent-configuration.js';
+import { activateAgentPromptVersion, createAgentPromptVersion, ensureAgentPromptVersions, listAgentPromptVersions } from './services/agent-prompts.js';
 import { createRoutingPolicy, listRoutingPolicies, routingPolicyInputSchema } from './services/routing.js';
 import { getSalesContext } from './services/sales-context.js';
 import { getOperationTraceSummary, listOperationTraces } from './services/operation-traces.js';
@@ -460,6 +461,23 @@ app.get('/v1/panel/ai/configuration', { preHandler: [requirePanelUser, requirePa
   return getAiConfiguration(request.panelUser!.organizationId);
 });
 
+app.get('/v1/panel/ai/prompt-versions', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request) => {
+  const organizationId = request.panelUser!.organizationId;
+  await ensureAgentPromptVersions(organizationId);
+  return { data: await listAgentPromptVersions(organizationId) };
+});
+
+app.post('/v1/panel/ai/prompt-versions', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request, reply) => {
+  const organizationId = request.panelUser!.organizationId;
+  await ensureAgentPromptVersions(organizationId);
+  return reply.code(201).send(await createAgentPromptVersion(organizationId, agentPromptVersionInputSchema.parse(request.body)));
+});
+
+app.post('/v1/panel/ai/prompt-versions/:promptId/activate', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request) => {
+  const params = z.object({ promptId: z.string().uuid() }).parse(request.params);
+  return activateAgentPromptVersion(request.panelUser!.organizationId, params.promptId);
+});
+
 app.post('/v1/panel/ai/openai-key', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request, reply) => {
   return reply.code(201).send(await saveOpenAiKey(request.panelUser!.organizationId, openAiKeyInputSchema.parse(request.body)));
 });
@@ -612,7 +630,7 @@ app.setErrorHandler((error, _request, reply) => {
     if (config.NODE_ENV !== 'production') response.details = error.flatten();
     return reply.code(400).send(response);
   }
-  if (error instanceof Error && (error.message === 'channel_not_found_or_inactive' || error.message === 'channel_not_found' || error.message === 'conversation_not_found' || error.message === 'conversation_not_available' || error.message === 'product_not_found' || error.message === 'media_asset_not_found' || error.message === 'media_asset_not_linked' || error.message === 'tag_not_found' || error.message === 'tag_assignment_not_found' || error.message === 'routing_policy_tag_not_found' || error.message === 'agent_playbook_not_found')) {
+  if (error instanceof Error && (error.message === 'channel_not_found_or_inactive' || error.message === 'channel_not_found' || error.message === 'conversation_not_found' || error.message === 'conversation_not_available' || error.message === 'product_not_found' || error.message === 'media_asset_not_found' || error.message === 'media_asset_not_linked' || error.message === 'tag_not_found' || error.message === 'tag_assignment_not_found' || error.message === 'routing_policy_tag_not_found' || error.message === 'agent_playbook_not_found' || error.message === 'agent_prompt_not_found')) {
     return reply.code(404).send({ error: error.message });
   }
   if (error instanceof Error && (error.message === 'media_storage_not_configured' || error.message === 'media_object_invalid' || error.message === 'data_encryption_key_not_configured' || error.message === 'data_encryption_key_invalid' || error.message === 'bling_connection_not_configured' || error.message === 'bling_oauth_redirect_uri_not_configured' || error.message === 'chatai_connection_not_configured')) {

@@ -25,6 +25,7 @@ export class OpenAiAgentsSdkProvider implements AgentProvider {
     const graph = buildLilibagAgentGraph({
       model: availability.model,
       salesPlaybook: input.instructions,
+      specialistPrompts: input.specialistPrompts,
       enabled: availability.enabled
     });
     const modelProvider = new OpenAIProvider({ apiKey: availability.apiKey, useResponses: true, strictFeatureValidation: true });

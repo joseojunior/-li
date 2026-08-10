@@ -6,6 +6,7 @@ import { publishTrace, redis, scheduleOutbound, type ConversationJob } from '../
 import { applyRoutingPolicy } from './routing.js';
 import { applyLilibagSafetyPolicy } from './sales-context.js';
 import { getLilibagPlaybook } from './lilibag-playbook.js';
+import { getActiveAgentPrompts } from './agent-prompts.js';
 import { parseAgentDecision } from '../agent-system/decision.js';
 import { prepareAgentOutbound } from './agent-outbound.js';
 import { queueOutboundMessageInTransaction } from './outbound.js';
@@ -65,7 +66,8 @@ export async function processConversation(job: ConversationJob): Promise<void> {
       return;
     }
 
-    const playbook = await getLilibagPlaybook(job.organizationId);
+    const [playbook, activePrompts] = await Promise.all([getLilibagPlaybook(job.organizationId), getActiveAgentPrompts(job.organizationId)]);
+    const attendantPrompt = activePrompts.attendant ?? playbook;
 
     const run = await pool.query<{ id: string }>(
         `INSERT INTO agent_runs
@@ -78,7 +80,7 @@ export async function processConversation(job: ConversationJob): Promise<void> {
           JSON.stringify(messages.rows.map((message) => message.id))
         ]
     );
-    publishTrace({ organizationId: job.organizationId, conversationId: job.conversationId, agentRunId: run.rows[0].id, eventType: 'agent.run_started', status: 'running', detail: { inputMessages: messages.rows.length, promptVersion: playbook ? playbook.version : null } });
+    publishTrace({ organizationId: job.organizationId, conversationId: job.conversationId, agentRunId: run.rows[0].id, eventType: 'agent.run_started', status: 'running', detail: { inputMessages: messages.rows.length, promptVersion: attendantPrompt ? attendantPrompt.version : null } });
 
     try {
       const result = await runner.run({
@@ -93,8 +95,9 @@ export async function processConversation(job: ConversationJob): Promise<void> {
           body: message.body,
           createdAt: message.created_at.toISOString()
         })),
-        instructions: playbook?.instructions,
-        promptVersion: playbook ? `${playbook.version}:${playbook.checksum.slice(0, 12)}` : undefined
+        instructions: attendantPrompt?.instructions,
+        specialistPrompts: { support: activePrompts.support?.instructions, product: activePrompts.product?.instructions },
+        promptVersion: attendantPrompt ? `${attendantPrompt.version}:${attendantPrompt.checksum.slice(0, 12)}` : undefined
       });
 
       const decision = result.status === 'completed' ? parseAgentDecision(result.output.decision) : null;

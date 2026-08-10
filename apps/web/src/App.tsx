@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { api, type AgentKey, type AgentModel, type AgentPlaybook, type AiConfiguration, type BlingCatalogSyncRun, type BlingConnectionStatus, type ChatAiConnectionResult, type ChatAiTagSyncResult, type Conversation, type ConversationTag, type Message, type MessageChannel, type OperationTrace, type OperationTraceSummary, type PanelUser, type Product, type ProductInput, type PromptTestResult, type RoutingPolicy, type SalesContext } from './api';
+import { api, type AgentKey, type AgentModel, type AgentPlaybook, type AgentPromptVersion, type AiConfiguration, type BlingCatalogSyncRun, type BlingConnectionStatus, type ChatAiConnectionResult, type ChatAiTagSyncResult, type Conversation, type ConversationTag, type Message, type MessageChannel, type OperationTrace, type OperationTraceSummary, type PanelUser, type Product, type ProductInput, type PromptTestResult, type RoutingPolicy, type SalesContext } from './api';
 
 type Section = 'inbox' | 'catalog' | 'automation' | 'traces' | 'settings';
 
@@ -666,7 +666,110 @@ function ChatAiConnectionTest({ phone, onPhoneChange, busy, result, onSubmit }: 
   return <form className="chatai-connection-test" onSubmit={onSubmit}><div><p className="eyebrow">Validacao segura</p><h3>Testar conexao de saida</h3><p>Confere URL e token no ChatAI validando um numero, sem enviar mensagem.</p></div><label>Numero para validar<input value={phone} onChange={(event) => onPhoneChange(event.target.value)} inputMode="tel" placeholder="5511999999999" required /></label><button className="button secondary" disabled={busy || !phone.trim()}>{busy ? 'Validando...' : 'Testar conexao'}</button>{result && <p className="connection-test-result">{result}</p>}</form>;
 }
 
+const agentToolLabels: Record<AgentKey, string[]> = {
+  attendant: ['Memória comercial', 'Transferência humana'],
+  support: ['Memória comercial', 'Status de pedido'],
+  product: ['Busca de catálogo', 'Fotos de produto']
+};
+
 function Integrations({ user, onError }: { user: PanelUser; onError: (message: string) => void }) {
+  const [configuration, setConfiguration] = useState<AiConfiguration | null>(null);
+  const [promptVersions, setPromptVersions] = useState<AgentPromptVersion[]>([]);
+  const [selectedAgentKey, setSelectedAgentKey] = useState<AgentKey>('attendant');
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [showPromptComposer, setShowPromptComposer] = useState(false);
+  const [draftInstructions, setDraftInstructions] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [testMessage, setTestMessage] = useState('Olá, estou procurando uma bolsa para maternidade.');
+  const [testResult, setTestResult] = useState<PromptTestResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState(false);
+  const [savingAgent, setSavingAgent] = useState<AgentKey | null>(null);
+  const [savingPrompt, setSavingPrompt] = useState(false);
+  const [activatingPrompt, setActivatingPrompt] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const canManage = user.role === 'owner' || user.role === 'admin';
+
+  const load = async () => {
+    if (!canManage) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const [nextConfiguration, nextPrompts] = await Promise.all([api.aiConfiguration(), api.agentPromptVersions()]);
+      setConfiguration(nextConfiguration); setPromptVersions(nextPrompts.data);
+      setSelectedPromptId((current) => current && nextPrompts.data.some((prompt) => prompt.id === current) ? current : (nextPrompts.data.find((prompt) => prompt.agentKey === selectedAgentKey && prompt.status === 'active')?.id ?? null));
+    } catch (reason) { onError(reason instanceof Error ? reason.message : 'Não foi possível carregar a central de agentes.'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, [canManage]);
+
+  const selectedAgent = configuration?.agents.find((agent) => agent.key === selectedAgentKey) ?? null;
+  const agentPrompts = promptVersions.filter((prompt) => prompt.agentKey === selectedAgentKey).sort((a, b) => b.version - a.version);
+  const activePrompt = agentPrompts.find((prompt) => prompt.status === 'active') ?? null;
+  const selectedPrompt = agentPrompts.find((prompt) => prompt.id === selectedPromptId) ?? activePrompt;
+
+  function selectAgent(agentKey: AgentKey) {
+    setSelectedAgentKey(agentKey); setShowPromptComposer(false); setTestResult(null);
+    setSelectedPromptId(promptVersions.find((prompt) => prompt.agentKey === agentKey && prompt.status === 'active')?.id ?? null);
+  }
+  function startPromptVersion() { setDraftInstructions(activePrompt?.instructions ?? ''); setShowPromptComposer(true); }
+  async function saveKey(event: FormEvent) {
+    event.preventDefault(); if (!apiKey.trim()) return;
+    setSavingKey(true);
+    try { await api.saveOpenAiKey(apiKey.trim()); setApiKey(''); await load(); }
+    catch (reason) { onError(reason instanceof Error ? reason.message : 'Não foi possível salvar a chave.'); }
+    finally { setSavingKey(false); }
+  }
+  async function updateAgent(agentKey: AgentKey, model: AgentModel, enabled: boolean) {
+    setSavingAgent(agentKey);
+    try {
+      const saved = await api.updateAiAgent(agentKey, { model, enabled });
+      setConfiguration((current) => current ? { ...current, agents: current.agents.map((agent) => agent.key === agentKey ? { ...agent, ...saved } : agent) } : current);
+    } catch (reason) { onError(reason instanceof Error ? reason.message : 'Não foi possível atualizar o agente.'); }
+    finally { setSavingAgent(null); }
+  }
+  async function createPromptVersion(event: FormEvent) {
+    event.preventDefault(); if (draftInstructions.trim().length < 80) return;
+    setSavingPrompt(true);
+    try {
+      const created = await api.createAgentPromptVersion({ agentKey: selectedAgentKey, instructions: draftInstructions });
+      setPromptVersions((current) => [created, ...current]); setSelectedPromptId(created.id); setShowPromptComposer(false);
+    } catch (reason) { onError(reason instanceof Error ? reason.message : 'Não foi possível criar a versão do prompt.'); }
+    finally { setSavingPrompt(false); }
+  }
+  async function activatePrompt(prompt: AgentPromptVersion) {
+    setActivatingPrompt(prompt.id);
+    try {
+      const activated = await api.activateAgentPromptVersion(prompt.id);
+      setPromptVersions((current) => current.map((item) => item.agentKey === activated.agentKey && item.status === 'active' && item.id !== activated.id ? { ...item, status: 'archived' } : item.id === activated.id ? activated : item));
+      setSelectedPromptId(activated.id);
+    } catch (reason) { onError(reason instanceof Error ? reason.message : 'Não foi possível ativar esta versão.'); }
+    finally { setActivatingPrompt(null); }
+  }
+  async function runPromptTest(event: FormEvent) {
+    event.preventDefault(); if (!testMessage.trim()) return;
+    setTesting(true); setTestResult(null);
+    try { setTestResult(await api.testPrompt(selectedAgentKey, testMessage.trim(), selectedPrompt?.id)); }
+    catch (reason) { onError(reason instanceof Error ? reason.message : 'Não foi possível executar o teste.'); }
+    finally { setTesting(false); }
+  }
+
+  if (!canManage) return <div className="empty-page"><Empty title="Acesso restrito" text="Somente owner e admin podem configurar os agentes." /></div>;
+  return <section className="agent-studio">
+    <header className="agent-studio-header"><div><p className="eyebrow">OpenAI · Agents SDK</p><h2>Central de agentes</h2><p>Configure especialistas, controle a versão ativa de cada prompt e teste o comportamento antes de liberar no canal.</p></div><div className="agent-studio-status"><span className={`pill ${configuration?.provider.configured ? 'success' : 'warning'}`}>{loading ? 'Carregando' : configuration?.provider.configured ? 'Provedor configurado' : 'Chave pendente'}</span><button className="button secondary" type="button" onClick={() => void load()} disabled={loading}>Atualizar</button></div></header>
+    <div className="agent-studio-layout">
+      <aside className="agent-roster" aria-label="Agentes disponíveis"><div className="agent-roster-head"><strong>Equipe de IA</strong><span>{configuration?.agents.filter((agent) => agent.enabled).length ?? 0}/3 ativos</span></div>{configuration?.agents.map((agent) => <button type="button" key={agent.key} onClick={() => selectAgent(agent.key)} className={`agent-roster-item ${selectedAgentKey === agent.key ? 'selected' : ''}`}><span className={`agent-monogram ${agent.key}`}>{agent.key === 'attendant' ? 'A' : agent.key === 'support' ? 'S' : 'P'}</span><span><strong>{agent.label}</strong><small>{agent.enabled ? 'Ativo' : 'Pausado'} · {agent.model.replace('gpt-5.6-', '')}</small></span><i className={agent.enabled ? 'live' : ''} aria-label={agent.enabled ? 'Ativo' : 'Pausado'} /></button>)}</aside>
+      <main className="agent-workbench">
+        {selectedAgent && <><header className="agent-workbench-header"><div><p className="eyebrow">{selectedAgent.key === 'attendant' ? 'Agente de entrada' : 'Especialista interno'}</p><h3>{selectedAgent.label}</h3><p>{selectedAgent.responsibility}</p></div><label className="toggle agent-toggle"><input type="checkbox" checked={selectedAgent.enabled} onChange={(event) => void updateAgent(selectedAgent.key, selectedAgent.model, event.target.checked)} disabled={savingAgent === selectedAgent.key} /><span>{selectedAgent.enabled ? 'Ativo' : 'Pausado'}</span></label></header>
+          <div className="agent-settings-row"><label>Modelo<select value={selectedAgent.model} onChange={(event) => void updateAgent(selectedAgent.key, event.target.value as AgentModel, selectedAgent.enabled)} disabled={savingAgent === selectedAgent.key}><option value="gpt-5.6-luna">GPT-5.6 Luna</option><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option></select><small>{savingAgent === selectedAgent.key ? 'Salvando configuração…' : modelPurpose(selectedAgent.model)}</small></label><div className="agent-tool-list"><span>Ferramentas permitidas</span><div>{agentToolLabels[selectedAgent.key].map((tool) => <b key={tool}>{tool}</b>)}</div></div></div>
+          <section className="agent-prompt-area"><header><div><p className="eyebrow">Prompt e versões</p><h3>{activePrompt ? `Versão ativa v${activePrompt.version}` : 'Nenhuma versão ativa'}</h3><p>{activePrompt ? `Ativada para novas execuções · ${activePrompt.checksum.slice(0, 12)}` : 'Crie a primeira versão para este agente.'}</p></div><button className="button primary" type="button" onClick={startPromptVersion}>Nova versão</button></header><div className="agent-version-layout"><aside className="prompt-version-list" aria-label="Versões do prompt"><strong>Histórico</strong>{agentPrompts.map((prompt) => <button type="button" key={prompt.id} onClick={() => { setSelectedPromptId(prompt.id); setShowPromptComposer(false); }} className={`prompt-version-row ${selectedPrompt?.id === prompt.id ? 'selected' : ''}`}><span><b>v{prompt.version}</b><small>{promptVersionLabel(prompt.status)}</small></span><time>{formatDate(prompt.createdAt)}</time></button>)}</aside><div className="prompt-version-content">{showPromptComposer ? <form className="prompt-composer" onSubmit={createPromptVersion}><label>Instruções da nova versão<textarea value={draftInstructions} onChange={(event) => setDraftInstructions(event.target.value)} rows={15} minLength={80} required /></label><div><small>Uma nova versão nasce como rascunho. Só passa a valer após ser ativada.</small><span><button className="button secondary" type="button" onClick={() => setShowPromptComposer(false)}>Cancelar</button><button className="button primary" disabled={savingPrompt || draftInstructions.trim().length < 80}>{savingPrompt ? 'Salvando…' : 'Criar rascunho'}</button></span></div></form> : selectedPrompt ? <><div className="prompt-version-summary"><span className={`prompt-status ${selectedPrompt.status}`}>{promptVersionLabel(selectedPrompt.status)}</span><span>v{selectedPrompt.version} · {selectedPrompt.checksum.slice(0, 12)}</span>{selectedPrompt.status !== 'active' && <button type="button" className="button secondary" onClick={() => void activatePrompt(selectedPrompt)} disabled={activatingPrompt === selectedPrompt.id}>{activatingPrompt === selectedPrompt.id ? 'Ativando…' : 'Ativar esta versão'}</button>}</div><pre className="prompt-preview">{selectedPrompt.instructions}</pre></> : <Empty title="Sem versão selecionada" text="Escolha ou crie um prompt para revisar seu conteúdo." />}</div></div></section>
+        </>}
+      </main>
+      <aside className="agent-test-panel"><div><p className="eyebrow">Ambiente de teste</p><h3>Validar cenário</h3><p>Não envia mensagens para o WhatsApp e não altera conversas reais.</p></div><form onSubmit={runPromptTest}><label>Versão avaliada<input value={selectedPrompt ? `v${selectedPrompt.version} · ${promptVersionLabel(selectedPrompt.status)}` : 'Sem versão'} readOnly /></label><label>Mensagem de teste<textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} rows={7} /></label><button className="button primary" disabled={testing || !testMessage.trim()}>{testing ? 'Testando…' : 'Executar teste'}</button></form>{testResult && <div className={`agent-test-result ${testResult.status}`}><strong>{testResult.status === 'completed' ? 'Teste concluído' : 'Teste aguardando ativação'}</strong><p>{promptTestReason(testResult.reason, testResult.agentKey, testResult.model)}{testResult.promptVersion ? ` Versão ${testResult.promptVersion}.` : ''}</p></div>}<details className="agent-provider-settings"><summary>Credenciais do provedor</summary><form onSubmit={saveKey}><p>A chave é cifrada no backend e não aparece novamente neste painel.</p><label>OpenAI API key<input type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Cole somente quando for ativar" /></label><button className="button secondary" disabled={savingKey || !apiKey.trim()}>{savingKey ? 'Salvando…' : configuration?.provider.configured ? 'Substituir chave' : 'Salvar chave'}</button></form></details></aside>
+    </div>
+  </section>;
+}
+
+function LegacyAgentIntegrations({ user, onError }: { user: PanelUser; onError: (message: string) => void }) {
   const [configuration, setConfiguration] = useState<AiConfiguration | null>(null);
   const [loading, setLoading] = useState(true);
   const [apiKey, setApiKey] = useState('');
@@ -713,6 +816,7 @@ function Integrations({ user, onError }: { user: PanelUser; onError: (message: s
 function slugify(value: string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64); }
 function policyActionLabel(action: RoutingPolicy['action']['type']) { return ({ continue: 'Seguir agente', handoff: 'Equipe humana', pause_automation: 'Pausar IA' } as Record<string, string>)[action]; }
 function policySummary(policy: RoutingPolicy) { const tags = [...(policy.conditions.hasTagsAll ?? []), ...(policy.conditions.hasTagsAny ?? [])]; const tagText = tags.length ? tags.map((tag) => `#${tag}`).join(', ') : 'qualquer conversa'; return `Ao identificar ${tagText}, ${policyActionLabel(policy.action.type).toLowerCase()}.`; }
+function promptVersionLabel(status: AgentPromptVersion['status']) { return ({ active: 'Ativa', draft: 'Rascunho', archived: 'Arquivada' } as Record<AgentPromptVersion['status'], string>)[status]; }
 function modelPurpose(model: AgentModel) { return ({ 'gpt-5.6-luna': 'Boa escolha para fluxos repetitivos e alto volume.', 'gpt-5.6-terra': 'Mais contexto e qualidade com custo equilibrado.', 'gpt-5.6-sol': 'Use em casos complexos validados por avaliação.' } as Record<AgentModel, string>)[model]; }
 function blingStatusLabel(status?: BlingConnectionStatus['status']) { return ({ not_configured: 'Não configurado', pending: 'Aguardando OAuth', active: 'Conectado', disabled: 'Desativado', error: 'Atenção necessária' } as Record<string, string>)[status ?? 'not_configured']; }
 function blingStatusTone(status?: BlingConnectionStatus['status']) { return status === 'active' ? 'success' : status === 'error' ? 'warning' : 'neutral'; }

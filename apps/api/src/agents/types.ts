@@ -15,6 +15,7 @@ export type AgentInput = {
   messageIds: string[];
   messages: AgentMessage[];
   instructions?: string;
+  specialistPrompts?: Partial<Record<'support' | 'product', string>>;
   promptVersion?: string;
 };
 

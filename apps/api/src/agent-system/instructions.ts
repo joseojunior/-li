@@ -17,15 +17,15 @@ DECISÃO FINAL OBRIGATÓRIA
 - Para encaminhar, primeiro use handoff_to_human e então use action "handoff" com uma mensagem breve e o motivo. Não inclua mídias no handoff.
 `.trim();
 
-const specialistRules: Record<Exclude<LilibagAgentKey, 'attendant'>, string> = {
+export const specialistPromptDefaults: Record<Exclude<LilibagAgentKey, 'attendant'>, string> = {
   support: `Você é um especialista interno. Não fala diretamente com a cliente. Devolva uma resposta curta, objetiva e baseada nas ferramentas. Se não houver evidência, diga que o atendimento deve transferir para uma pessoa.`,
   product: `Você é um especialista interno de catálogo. Não fala diretamente com a cliente. Pesquise antes de responder e devolva apenas produtos disponíveis, com fatos que possam ser usados pelo atendimento.`
 };
 
-export function buildAgentInstructions(agentKey: LilibagAgentKey, salesPlaybook?: string): string {
+export function buildAgentInstructions(agentKey: LilibagAgentKey, promptOverride?: string): string {
   const profile = lilibagAgentCatalog[agentKey];
   const role = `PAPEL\n${profile.responsibility}`;
-  const specialist = agentKey === 'attendant' ? salesPlaybook?.trim() ?? '' : specialistRules[agentKey];
+  const specialist = promptOverride?.trim() ?? (agentKey === 'attendant' ? '' : specialistPromptDefaults[agentKey]);
   const outputRules = agentKey === 'attendant' ? finalDecisionRules : '';
   return [role, sharedRules, specialist, outputRules].filter(Boolean).join('\n\n');
 }

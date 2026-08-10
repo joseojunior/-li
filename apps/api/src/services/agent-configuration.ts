@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import { pool, withTransaction } from '../db/client.js';
 import { encryptSecret } from '../security/encryption.js';
+import { findAgentPromptVersion } from './agent-prompts.js';
 
 export const agentKeySchema = z.enum(['attendant', 'support', 'product']);
 export const agentModelSchema = z.enum(['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol']);
@@ -12,7 +13,12 @@ export const agentConfigurationInputSchema = z.object({
 export const openAiKeyInputSchema = z.object({ apiKey: z.string().min(20).max(1_000) });
 export const promptTestInputSchema = z.object({
   agentKey: agentKeySchema,
-  message: z.string().min(1).max(4_000)
+  message: z.string().min(1).max(4_000),
+  promptVersionId: z.string().uuid().optional()
+});
+export const agentPromptVersionInputSchema = z.object({
+  agentKey: agentKeySchema,
+  instructions: z.string().trim().min(80).max(30_000)
 });
 
 type AgentKey = z.infer<typeof agentKeySchema>;
@@ -94,11 +100,14 @@ export async function updateAgentConfiguration(organizationId: string, agentKey:
 export async function testAgentPrompt(organizationId: string, input: z.infer<typeof promptTestInputSchema>) {
   const configuration = await getAiConfiguration(organizationId);
   const agent = configuration.agents.find((item) => item.key === input.agentKey)!;
+  const selectedPrompt = input.promptVersionId ? await findAgentPromptVersion(organizationId, input.promptVersionId) : null;
+  if (input.promptVersionId && (!selectedPrompt || selectedPrompt.agentKey !== input.agentKey)) throw new Error('agent_prompt_not_found');
+  const promptVersion = selectedPrompt ? `v${selectedPrompt.version}:${selectedPrompt.checksum.slice(0, 12)}` : undefined;
   if (!configuration.provider.configured) {
-    return { status: 'waiting_configuration' as const, agentKey: input.agentKey, model: agent.model, reason: 'openai_api_key_not_configured' };
+    return { status: 'waiting_configuration' as const, agentKey: input.agentKey, model: agent.model, promptVersion, reason: 'openai_api_key_not_configured' };
   }
   if (!agent.enabled) {
-    return { status: 'waiting_configuration' as const, agentKey: input.agentKey, model: agent.model, reason: 'agent_disabled' };
+    return { status: 'waiting_configuration' as const, agentKey: input.agentKey, model: agent.model, promptVersion, reason: 'agent_disabled' };
   }
-  return { status: 'waiting_configuration' as const, agentKey: input.agentKey, model: agent.model, reason: 'agents_sdk_runtime_not_enabled' };
+  return { status: 'waiting_configuration' as const, agentKey: input.agentKey, model: agent.model, promptVersion, reason: 'agents_sdk_runtime_not_enabled' };
 }
