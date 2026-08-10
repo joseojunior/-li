@@ -597,7 +597,7 @@ function ChannelIntegration({ user, onError }: { user: PanelUser; onError: (mess
       setWebhook((current) => result.webhookUrl ? result : current);
       setApiToken('');
       await load();
-    } catch (reason) { onError(reason instanceof Error ? reason.message : 'Não foi possível conectar o ChatAI.'); }
+    } catch (reason) { onError(reason instanceof Error && reason.message === 'invalid_request' ? 'Confira a URL, o token e a fila do ChatAI.' : reason instanceof Error ? reason.message : 'Não foi possível conectar o ChatAI.'); }
     finally { setSavingConnection(false); }
   }
   async function testConnection(event: FormEvent) {

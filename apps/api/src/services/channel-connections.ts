@@ -12,7 +12,7 @@ const backendUrlSchema = z.string().url().refine((value) => {
 
 export const chatAiConnectionSchema = z.object({
   backendUrl: backendUrlSchema,
-  apiToken: z.string().min(16).max(1_000),
+  apiToken: z.string().trim().min(1, 'Informe o token do ChatAI.').max(1_000),
   queueId: z.number().int().min(0).max(1_000_000).default(0),
   processingDelayMs: z.number().int().min(1_000).max(30_000).default(5_000)
 });
