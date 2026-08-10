@@ -14,7 +14,7 @@ import { requireAdminKey, requireInboundSecret, requirePanelOrigin } from './sec
 import { catalogSyncRequestSchema, listBlingCatalogSyncRuns, requestBlingCatalogSync } from './services/bling.js';
 import { beginBlingAuthorization, blingConnectionInputSchema, completeBlingAuthorization, getBlingConnectionStatus, saveBlingConnection } from './services/bling-oauth.js';
 import { addProductMedia, createProduct, productInputSchema, productMediaInputSchema, productUpdateSchema, removeProductMedia, searchProducts, updateProduct } from './services/catalog.js';
-import { channelProcessingSchema, chatAiConnectionSchema, chatAiWebhookUrl, generateChatAiWebhook, saveChannelProcessing, saveChatAiConnection, validChatAiWebhookToken } from './services/channel-connections.js';
+import { channelProcessingSchema, chatAiConnectionSchema, chatAiWebhookUrl, generateChatAiWebhook, getPersistedChatAiWebhookUrl, saveChannelProcessing, saveChatAiConnection, validChatAiWebhookToken } from './services/channel-connections.js';
 import { assertChannelAccess, channelInputSchema, createChatAiChannel, listOrganizationChannels } from './services/channels.js';
 import { handoffConversation, handoffSchema, resumeConversation } from './services/handoff.js';
 import { ingestInbound, inboundMessageSchema } from './services/inbound.js';
@@ -393,6 +393,13 @@ app.post('/v1/panel/channels/:channelId/webhook', { preHandler: [requirePanelUse
     webhookUrl,
     webhookUrlAvailable: Boolean(webhookUrl)
   });
+});
+
+app.get('/v1/panel/channels/:channelId/webhook', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request) => {
+  const params = z.object({ channelId: z.string().uuid() }).parse(request.params);
+  await assertChannelAccess(params.channelId, request.panelUser!.organizationId);
+  const webhookUrl = await getPersistedChatAiWebhookUrl(params.channelId);
+  return { channelId: params.channelId, webhookUrl, webhookUrlAvailable: Boolean(webhookUrl) };
 });
 
 app.post('/v1/panel/channels/:channelId/simulate-inbound', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request, reply) => {

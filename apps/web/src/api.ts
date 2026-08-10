@@ -77,6 +77,7 @@ export const api = {
   channels: () => request<{ data: MessageChannel[] }>('/v1/panel/channels'),
   createChatAiChannel: (input: { displayName: string; externalId?: string }) => request<MessageChannel>('/v1/panel/channels', { method: 'POST', body: JSON.stringify(input) }),
   generateChatAiWebhook: (channelId: string, input: { processingDelayMs: number }) => request<ChatAiConnectionResult>(`/v1/panel/channels/${channelId}/webhook`, { method: 'POST', body: JSON.stringify(input) }),
+  chatAiWebhook: (channelId: string) => request<ChatAiConnectionResult>(`/v1/panel/channels/${channelId}/webhook`),
   simulateChatAiInbound: (channelId: string, input: { message: string; contactName: string; phoneE164: string; queueId: number }) => request<{ accepted: boolean; duplicate: boolean; conversationId: string; normalized: { type: string; body?: string; externalContactId: string } }>(`/v1/panel/channels/${channelId}/simulate-inbound`, { method: 'POST', body: JSON.stringify(input) }),
   saveChatAiProcessing: (channelId: string, input: { processingDelayMs: number }) => request(`/v1/panel/channels/${channelId}/processing`, { method: 'PUT', body: JSON.stringify(input) }),
   saveChatAiChannelConnection: (channelId: string, input: { backendUrl: string; apiToken: string; queueId: number; processingDelayMs: number }) => request<ChatAiConnectionResult>(`/v1/panel/channels/${channelId}/chatai`, { method: 'POST', body: JSON.stringify(input) }),

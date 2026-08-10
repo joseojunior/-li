@@ -46,7 +46,7 @@ Depois de definir `DATA_ENCRYPTION_KEY` com 32 bytes aleatórios codificados em 
 }
 ```
 
-Não reaproveite token que estava nos exports. Gere um novo no painel ChatAI. A URL de entrada pode ser gerada antes desta conexão de saída; o token é exibido somente nesse momento e o banco guarda apenas seu hash. Para trocar a URL, regenere o webhook pela tela de Integrações.
+Não reaproveite token que estava nos exports. Gere um novo no painel ChatAI. A URL de entrada pode ser gerada antes desta conexão de saída; o token é cifrado no banco e seu hash é usado para validar cada chamada. A URL permanece visível somente para usuários owner e admin daquele canal. Para trocar a URL, regenere o webhook pela tela de Integrações.
 
 Defina `WEBHOOK_PUBLIC_URL` como a URL pública HTTPS de entrada antes de gerar uma URL para o ChatAI. Sem ela — e sem um `APP_PUBLIC_URL` alternativo — o sistema guarda o token, mas não exibe uma URL copiável.
 
