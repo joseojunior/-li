@@ -6,6 +6,11 @@ export type ChatAiConnection = {
   queueId: number;
 };
 
+export type ChatAiTagCandidate = {
+  name: string;
+  color?: string;
+};
+
 function normalizedRecipient(value: string): string {
   const digits = value.replace(/\D/g, '');
   if (digits.length < 10 || digits.length > 20) throw new Error('invalid_chat_ai_recipient');
@@ -41,6 +46,51 @@ function responseId(value: unknown): string | undefined {
     if (typeof record[key] === 'string' || typeof record[key] === 'number') return String(record[key]);
   }
   return undefined;
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function remoteContactRows(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  const value = record(payload);
+  if (!value) return [];
+  for (const key of ['data', 'contacts', 'tickets', 'rows']) {
+    if (Array.isArray(value[key])) return value[key];
+  }
+  return [];
+}
+
+function remoteTagCandidate(value: unknown): ChatAiTagCandidate | null {
+  if (typeof value === 'string' && value.trim()) return { name: value.trim().slice(0, 100) };
+  const tag = record(value);
+  if (!tag) return null;
+  const name = nonEmptyString(tag.name) ?? nonEmptyString(tag.label) ?? nonEmptyString(tag.title) ?? nonEmptyString(tag.tag) ?? nonEmptyString(tag.value);
+  if (!name) return null;
+  const color = nonEmptyString(tag.color);
+  return { name: name.slice(0, 100), color: color && /^#[0-9a-f]{6}$/i.test(color) ? color : undefined };
+}
+
+function collectRemoteTags(payload: unknown): ChatAiTagCandidate[] {
+  const byName = new Map<string, ChatAiTagCandidate>();
+  // The provider documents a whole-contact response. Never let an unexpectedly
+  // large tenant response turn this manual import into unbounded processing.
+  for (const item of remoteContactRows(payload).slice(0, 25_000)) {
+    const contact = record(item);
+    const tags = Array.isArray(contact?.tags) ? contact.tags : Array.isArray(record(contact?.contact)?.tags) ? record(contact?.contact)?.tags as unknown[] : [];
+    for (const value of tags) {
+      const tag = remoteTagCandidate(value);
+      if (!tag) continue;
+      const key = tag.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+      if (!byName.has(key)) byName.set(key, tag);
+    }
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
 
 export class ChatAiChannelAdapter implements ChannelAdapter {
@@ -80,16 +130,26 @@ export class ChatAiChannelAdapter implements ChannelAdapter {
     return { exists: record.exists, jid: typeof record.jid === 'string' ? record.jid : undefined };
   }
 
+  /**
+   * AtendeAI currently documents tags inside the contact/ticket response rather
+   * than a dedicated tag-catalog endpoint. This reads that response and returns
+   * only tag labels/colors; contact data is deliberately discarded.
+   */
+  async listConversationTags(): Promise<ChatAiTagCandidate[]> {
+    const payload = await this.request('/api/contacts/all', undefined, 'GET');
+    return collectRemoteTags(payload);
+  }
+
   private async post(path: string, body: Record<string, unknown>): Promise<string> {
     const payload = await this.request(path, body);
     return responseId(payload) ?? crypto.randomUUID();
   }
 
-  private async request(path: string, body: Record<string, unknown>): Promise<unknown> {
+  private async request(path: string, body?: Record<string, unknown>, method = 'POST'): Promise<unknown> {
     const response = await fetch(urlFor(this.connection.backendUrl, path), {
-      method: 'POST',
+      method,
       headers: { authorization: `Bearer ${this.connection.apiToken}`, 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      ...(body ? { body: JSON.stringify(body) } : {}),
       signal: AbortSignal.timeout(15_000)
     });
     const payload = await response.json().catch(() => null);

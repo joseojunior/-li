@@ -33,6 +33,25 @@ function metadata(value: RecordValue, provider: string): Record<string, unknown>
   };
 }
 
+function tagName(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  const tag = object(value);
+  return string(tag?.name) ?? string(tag?.label) ?? string(tag?.title) ?? string(tag?.tag) ?? string(tag?.value);
+}
+
+function providerTags(...values: unknown[]): string[] {
+  const tags = new Set<string>();
+  for (const value of values) {
+    const source = object(value);
+    const entries = Array.isArray(source?.tags) ? source.tags : [];
+    for (const entry of entries) {
+      const name = tagName(entry);
+      if (name) tags.add(name.slice(0, 100));
+    }
+  }
+  return [...tags].slice(0, 30);
+}
+
 function normalizeMetaCloud(raw: RecordValue): InboundMessage[] {
   const entries = Array.isArray(raw.entry) ? raw.entry : [];
   return entries.flatMap((entry) => {
@@ -87,7 +106,7 @@ function normalizeSimple(raw: RecordValue): InboundMessage[] {
     type,
     body: string(candidate.body) ?? string(text?.body) ?? string(content?.caption),
     media: mediaUrl ? [{ url: mediaUrl, mimeType: string(candidate.mimeType) ?? string(content?.mime_type), filename: string(candidate.fileName) ?? string(content?.filename) }] : [],
-    metadata: metadata(candidate, 'chatai')
+    metadata: { ...metadata(candidate, 'chatai'), providerTags: providerTags(candidate, object(candidate.contact)) }
   });
   return normalized.success ? [normalized.data] : [];
 }
@@ -123,7 +142,8 @@ function normalizeAtendeAiEnvelope(payload: unknown): InboundMessage[] {
       providerType: string(message.mediaType) ?? 'text',
       ticketId: message.ticketId ?? body.chamadoId ?? null,
       queueId: message.queueId ?? body.queueId ?? null,
-      action: string(body.acao) ?? null
+      action: string(body.acao) ?? null,
+      providerTags: providerTags(message, contact, body)
     }
   });
   return normalized.success ? [normalized.data] : [];

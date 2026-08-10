@@ -16,6 +16,7 @@ import { catalogSyncRequestSchema, listBlingCatalogSyncRuns, requestBlingCatalog
 import { beginBlingAuthorization, blingConnectionInputSchema, completeBlingAuthorization, getBlingConnectionStatus, saveBlingConnection } from './services/bling-oauth.js';
 import { addProductMedia, createProduct, productInputSchema, productMediaInputSchema, productUpdateSchema, removeProductMedia, searchProducts, updateProduct } from './services/catalog.js';
 import { channelProcessingSchema, chatAiConnectionSchema, chatAiWebhookUrl, generateChatAiWebhook, getChatAiConnection, getPersistedChatAiWebhookUrl, saveChannelProcessing, saveChatAiConnection, validChatAiWebhookToken } from './services/channel-connections.js';
+import { syncChatAiConversationTags } from './services/chatai-tags.js';
 import { assertChannelAccess, channelInputSchema, createChatAiChannel, listOrganizationChannels } from './services/channels.js';
 import { handoffConversation, handoffSchema, resumeConversation } from './services/handoff.js';
 import { ingestInbound, inboundMessageSchema } from './services/inbound.js';
@@ -439,6 +440,13 @@ app.put('/v1/panel/channels/:channelId/processing', { preHandler: [requirePanelU
   return saveChannelProcessing(params.channelId, channelProcessingSchema.parse(request.body));
 });
 
+app.post('/v1/panel/channels/:channelId/chatai/tags/sync', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request) => {
+  const params = z.object({ channelId: z.string().uuid() }).parse(request.params);
+  const organizationId = request.panelUser!.organizationId;
+  await assertChannelAccess(params.channelId, organizationId);
+  return syncChatAiConversationTags(organizationId, params.channelId);
+});
+
 app.put('/v1/panel/integrations/bling/connection', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request) => {
   return saveBlingConnection(request.panelUser!.organizationId, blingConnectionInputSchema.parse(request.body));
 });
@@ -607,9 +615,10 @@ app.setErrorHandler((error, _request, reply) => {
   if (error instanceof Error && (error.message === 'channel_not_found_or_inactive' || error.message === 'channel_not_found' || error.message === 'conversation_not_found' || error.message === 'conversation_not_available' || error.message === 'product_not_found' || error.message === 'media_asset_not_found' || error.message === 'media_asset_not_linked' || error.message === 'tag_not_found' || error.message === 'tag_assignment_not_found' || error.message === 'routing_policy_tag_not_found' || error.message === 'agent_playbook_not_found')) {
     return reply.code(404).send({ error: error.message });
   }
-  if (error instanceof Error && (error.message === 'media_storage_not_configured' || error.message === 'media_object_invalid' || error.message === 'data_encryption_key_not_configured' || error.message === 'data_encryption_key_invalid' || error.message === 'bling_connection_not_configured' || error.message === 'bling_oauth_redirect_uri_not_configured')) {
+  if (error instanceof Error && (error.message === 'media_storage_not_configured' || error.message === 'media_object_invalid' || error.message === 'data_encryption_key_not_configured' || error.message === 'data_encryption_key_invalid' || error.message === 'bling_connection_not_configured' || error.message === 'bling_oauth_redirect_uri_not_configured' || error.message === 'chatai_connection_not_configured')) {
     return reply.code(409).send({ error: error.message });
   }
+  if (error instanceof Error && error.message.startsWith('chatai_request_failed:')) return reply.code(502).send({ error: 'chatai_remote_request_failed' });
   if (error instanceof Error && error.message === 'sales_context_sensitive_fact_not_allowed') return reply.code(400).send({ error: error.message });
   app.log.error(error);
   return reply.code(500).send({ error: 'internal_error' });

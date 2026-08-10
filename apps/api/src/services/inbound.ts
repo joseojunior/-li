@@ -2,6 +2,7 @@ import type pg from 'pg';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { withTransaction } from '../db/client.js';
+import { applyInboundChatAiTags } from './chatai-tags.js';
 
 export const inboundMessageSchema = z.object({
   idempotencyKey: z.string().min(8).max(255),
@@ -35,6 +36,12 @@ type ChannelRow = { id: string; organization_id: string; processing_delay_ms: nu
 type ContactRow = { id: string };
 type ConversationRow = { id: string };
 type MessageRow = { id: string };
+
+function providerTagNames(metadata: Record<string, unknown>): string[] {
+  return Array.isArray(metadata.providerTags)
+    ? metadata.providerTags.filter((value): value is string => typeof value === 'string').slice(0, 30)
+    : [];
+}
 
 export async function ingestInbound(channelId: string, message: InboundMessage): Promise<IngestedMessage> {
   return withTransaction(async (client) => {
@@ -71,6 +78,8 @@ export async function ingestInbound(channelId: string, message: InboundMessage):
        RETURNING id`,
       [channel.organization_id, channel.id, contact.rows[0].id]
     );
+
+    await applyInboundChatAiTags(client, channel.organization_id, conversation.rows[0].id, providerTagNames(message.metadata));
 
     const storedMessage = await client.query<MessageRow>(
       `INSERT INTO messages
