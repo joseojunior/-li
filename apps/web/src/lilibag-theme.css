@@ -1,0 +1,207 @@
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+/*
+ * Lili Bag operation theme
+ * The store's soft editorial palette is adapted here for an operational UI:
+ * navy keeps contrast high, while lilac, blush and mint communicate state.
+ */
+:root {
+  --lili-navy: #0a3257;
+  --lili-navy-deep: #062543;
+  --lili-lilac: #f4f0fb;
+  --lili-lilac-strong: #e8def8;
+  --lili-blush: #e3d6d0;
+  --lili-pink: #b3376b;
+  --lili-pink-dark: #8e2754;
+  --lili-mint: #b5dbcc;
+  --lili-mint-deep: #2b745a;
+  --lili-ink: #16314b;
+  --lili-muted: #667385;
+  --lili-line: #e5e2ed;
+  --lili-canvas: #fcfbfd;
+  --lili-white: #ffffff;
+  font-family: Comfortaa, Inter, ui-sans-serif, system-ui, sans-serif;
+  color: var(--lili-ink);
+  background: var(--lili-canvas);
+}
+
+body {
+  background:
+    radial-gradient(circle at 88% -8%, rgba(227, 214, 208, .55), transparent 26rem),
+    radial-gradient(circle at 36% 0, rgba(232, 222, 248, .68), transparent 31rem),
+    var(--lili-canvas);
+}
+
+button, input, textarea, select { font-family: inherit; }
+input, textarea, select {
+  border-color: #ddd8e7;
+  border-radius: 12px;
+  color: var(--lili-ink);
+  padding: 11px 13px;
+}
+input::placeholder, textarea::placeholder { color: #98a0aa; }
+input:focus, textarea:focus, select:focus {
+  border-color: var(--lili-pink);
+  box-shadow: 0 0 0 4px rgba(179, 55, 107, .12);
+}
+label { color: #40536a; }
+label small, .muted, .page-description { color: var(--lili-muted); }
+
+.brand-mark {
+  background: linear-gradient(145deg, #d7688f, var(--lili-pink));
+  border: 2px solid rgba(255, 255, 255, .7);
+  border-radius: 15px 15px 15px 5px;
+  box-shadow: 0 9px 21px rgba(179, 55, 107, .23);
+  color: #fff;
+  font-family: Comfortaa, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+.eyebrow { color: var(--lili-pink); font-size: 10px; letter-spacing: .14em; }
+.page-header h1, .login-card h2, .integration-detail-header h1 {
+  color: var(--lili-navy);
+  font-family: Comfortaa, Inter, sans-serif;
+  font-weight: 700;
+  letter-spacing: -.04em;
+}
+
+.button {
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  min-height: 42px;
+  padding: 9px 16px;
+}
+.button.primary { background: var(--lili-navy); box-shadow: 0 5px 13px rgba(10, 50, 87, .16); }
+.button.primary:hover { background: var(--lili-navy-deep); filter: none; }
+.button.secondary { background: #fff; border-color: #ddd8e7; color: var(--lili-navy); }
+.button.secondary:hover { background: var(--lili-lilac); border-color: #cfc4df; }
+.text-button, .back-button { color: var(--lili-pink); }
+.metric strong { color: var(--lili-navy); }
+
+/* Entry */
+.login-shell { background: var(--lili-navy); }
+.login-aside {
+  background:
+    radial-gradient(circle at 10% 80%, rgba(181, 219, 204, .24), transparent 20rem),
+    radial-gradient(circle at 87% 19%, rgba(227, 214, 208, .28), transparent 20rem),
+    var(--lili-navy);
+}
+.login-aside .brand-mark { background: var(--lili-pink); }
+.login-aside .eyebrow { color: var(--lili-mint); }
+.login-aside h1 { font-family: Comfortaa, sans-serif; font-weight: 700; letter-spacing: -.05em; }
+.login-aside > p:last-child { color: #dce7f1; }
+.login-card { background: rgba(255, 255, 255, .98); }
+
+/* App frame */
+.app-shell { background: transparent; }
+.sidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .06), transparent 28%),
+    var(--lili-navy);
+  box-shadow: 10px 0 30px rgba(10, 50, 87, .08);
+}
+.identity strong, .sidebar-footer strong { font-weight: 700; }
+.identity small, .sidebar-footer small, .nav-item { color: #c5d4e0; }
+.nav-item { border-radius: 12px; padding: 11px 12px; }
+.nav-item:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.nav-item.active {
+  background: var(--lili-pink);
+  box-shadow: 0 6px 16px rgba(2, 23, 46, .2);
+}
+.sidebar-footer { border-color: rgba(255, 255, 255, .16); }
+.avatar { background: var(--lili-blush); color: var(--lili-navy); }
+.avatar.soft { background: var(--lili-lilac); color: var(--lili-pink); }
+.icon-button { color: #d7e4ed; }
+.content { padding-top: 38px; }
+
+/* Shared panels */
+.notice { border-radius: 12px; }
+.inbox-grid, .product-card, .empty-page, .integration-list article,
+.automation-primary, .automation-stat, .workflow-card, .playbook-details,
+.rules-manager, .rules-card, .rule-creator, .ai-configuration,
+.bling-integration, .channel-integration, .trace-detail, .trace-metric,
+.trace-list, .integration-choice, .chatai-connection-test {
+  border-color: var(--lili-line);
+  box-shadow: 0 9px 24px rgba(36, 35, 65, .04);
+}
+.inbox-grid, .product-card, .empty-page, .integration-list article,
+.automation-primary, .automation-stat, .workflow-card, .playbook-details,
+.rules-manager, .rules-card, .rule-creator, .ai-configuration,
+.bling-integration, .channel-integration, .trace-detail, .trace-metric,
+.trace-list, .integration-choice, .chatai-connection-test { border-radius: 16px; }
+.inbox-grid, .trace-list, .bling-integration, .channel-integration { overflow: hidden; }
+
+/* Inbox */
+.conversation-list { border-color: var(--lili-line); background: #fff; }
+.conversation-row { border-radius: 12px; }
+.conversation-row:hover { background: var(--lili-lilac); }
+.conversation-row.selected { background: #eee7f9; }
+.conversation-copy strong, .conversation-header h2, .sales-sidebar h3 { color: var(--lili-navy); }
+.status-dot.open { background: var(--lili-mint-deep); }
+.status-dot.waiting_human { background: var(--lili-pink); }
+.conversation-header, .composer { border-color: var(--lili-line); }
+.message-area { background: linear-gradient(180deg, #fbfafe, #f7f6fb); }
+.bubble { border-radius: 16px 16px 16px 5px; box-shadow: 0 4px 10px rgba(37, 31, 56, .06); }
+.bubble.outbound { background: var(--lili-mint); border-radius: 16px 16px 5px 16px; }
+.sales-sidebar { background: #fbfafe; border-color: var(--lili-line); }
+.sales-sidebar-head, .sales-block { border-color: var(--lili-line); }
+.intent-pill { background: #e4f2ec; color: var(--lili-mint-deep); }
+.intent-pill.payment, .intent-pill.order_status, .intent-pill.after_sales, .intent-pill.sensitive_loss { background: #fbebf1; color: var(--lili-pink-dark); }
+.tag { background: var(--lili-lilac); border-color: #ddd3ee; color: #614f82; }
+.sales-tip { background: #fff7f8; border-color: #f1d5e1; }
+.sales-tip p { color: #7b405b; }
+
+/* Catalog */
+.product-grid { gap: 20px; }
+.product-card { transition: transform .18s ease, box-shadow .18s ease; }
+.product-card:hover { box-shadow: 0 14px 28px rgba(36, 35, 65, .1); transform: translateY(-3px); }
+.product-image { background: linear-gradient(135deg, var(--lili-lilac), #fbf7f4); color: var(--lili-pink); }
+.availability.available { background: #def1e8; color: #216c50; }
+.product-card h2, .product-card footer strong { color: var(--lili-navy); }
+
+/* Integrations, configuration and forms */
+.integration-icon, .bling-icon { background: var(--lili-lilac); color: var(--lili-pink); }
+.channel-icon { background: #e5eff5; color: var(--lili-navy); }
+.integration-choice:hover { border-color: #cdbce5; box-shadow: 0 12px 24px rgba(70, 46, 105, .1); }
+.integration-choice:focus-visible { outline-color: rgba(179, 55, 107, .3); }
+.choice-action { color: var(--lili-pink); }
+.integration-detail-header h1, .bling-header h2, .bling-body h3,
+.channel-header h2, .channel-body h3, .rules-manager-head h2,
+.automation-primary h2, .workflow-card h2 { color: var(--lili-navy); }
+.channel-layout, .bling-sync-panel, .webhook-setup, .webhook-simulator { background: #fbfafe; }
+.channel-create, .channel-connection, .webhook-result, .bling-credentials,
+.bling-connection-state, .bling-sync-panel, .sync-history { border-color: var(--lili-line); }
+.channel-row.selected { background: #eee7f9; }
+.channel-row:hover { background: var(--lili-lilac); }
+.webhook-result { background: #f6fbf8; border-color: #d5ebdf; }
+.webhook-url { border-color: #d6e7de; border-radius: 12px; }
+.webhook-url code { color: var(--lili-navy); font-family: "DM Mono", ui-monospace, monospace; }
+.webhook-flow > div + div { border-color: var(--lili-line); }
+.connection-ok, .simulation-result, .chatai-connection-test .connection-test-result { background: #e4f3ea; color: #217052; }
+.chatai-connection-test { background: #fbfafe; }
+.chatai-connection-test h3 { color: var(--lili-navy); font-family: Comfortaa, sans-serif; font-weight: 700; }
+
+/* Agent, rules and trace */
+.rules-manager { background: #faf8fc; border-color: #e7def2; }
+.journey-list li span { background: var(--lili-lilac); color: var(--lili-pink); }
+.playbook-meta strong, .automation-stat strong { color: var(--lili-navy); font-family: Comfortaa, sans-serif; font-weight: 700; }
+.trace-row:hover, .trace-row.selected { background: var(--lili-lilac); }
+.trace-row:focus-visible { outline-color: var(--lili-pink); }
+.trace-icon { background: var(--lili-lilac); color: var(--lili-pink); border-radius: 11px; }
+.trace-icon.queue { background: #e6f0f6; color: var(--lili-navy); }
+.trace-icon.agent { background: #f2e9f3; color: #7f3569; }
+.trace-run-picker { background: #fbfafe; }
+.trace-run-picker button.selected, .trace-toolbar button.selected { background: var(--lili-navy); border-color: var(--lili-navy); }
+.trace-toolbar button { border-color: #ded9e8; background: #fff; color: #647185; }
+.trace-detail-header h2, .trace-metric strong { color: var(--lili-navy); font-family: Comfortaa, sans-serif; font-weight: 700; }
+.trace-step::before { background: #ded6eb; }
+.trace-close { border-color: #ddd8e7; border-radius: 999px; color: var(--lili-navy); }
+.trace-close:hover { background: var(--lili-lilac); }
+
+@media (max-width: 800px) {
+  .sidebar { background: var(--lili-navy); }
+  .content { padding-top: 25px; }
+  .inbox-grid, .product-card, .integration-list article, .trace-list,
+  .bling-integration, .channel-integration { border-radius: 14px; }
+}
