@@ -20,6 +20,19 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks: [lilibag_local]
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate run
+    environment:
+      # Set only in deploy/.env.local-tunnel, which is ignored by Git.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      traefik:
+        condition: service_started
+    restart: unless-stopped
+    networks: [lilibag_local]
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -60,7 +73,7 @@ services:
       TRUST_PROXY: "true"
       WEB_APP_ORIGIN: http://app.lilibag.localhost
       APP_PUBLIC_URL: http://api.lilibag.localhost
-      WEBHOOK_PUBLIC_URL: http://webhooks.lilibag.localhost
+      WEBHOOK_PUBLIC_URL: ${LOCAL_WEBHOOK_PUBLIC_URL:-http://webhooks.lilibag.localhost}
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,7 +100,7 @@ services:
       - traefik.http.routers.lilibag-local-api.entrypoints=web
       - traefik.http.routers.lilibag-local-api.service=lilibag-local-api
       - traefik.http.services.lilibag-local-api.loadbalancer.server.port=3000
-      - traefik.http.routers.lilibag-local-webhooks.rule=Host(`webhooks.lilibag.localhost`) && PathPrefix(`/v1/webhooks/`)
+      - traefik.http.routers.lilibag-local-webhooks.rule=(Host(`webhooks.lilibag.localhost`) || Host(`webhooks-dev.lilibag.online`)) && PathPrefix(`/v1/webhooks/`)
       - traefik.http.routers.lilibag-local-webhooks.entrypoints=web
       - traefik.http.routers.lilibag-local-webhooks.service=lilibag-local-api
     networks: [lilibag_local]

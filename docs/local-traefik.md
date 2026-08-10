@@ -29,6 +29,43 @@ Ela usa Traefik `v3.6.16`, compativel com o Docker Engine 29 do Docker Desktop.
 Os dominios `.localhost` resolvem para `127.0.0.1` sem alterar o arquivo hosts.
 Nao exponha a porta `8080` ou use esta composicao fora da maquina local.
 
+## Receber eventos reais com Cloudflare Tunnel
+
+Use um tunnel de desenvolvimento separado, nunca o tunnel ou hostname da VPS.
+No painel Cloudflare, em **Networking > Tunnels**, crie um tunnel remotely
+managed chamado, por exemplo, `lilibag-local-dev`. Em **Published application**,
+adicione:
+
+| Campo | Valor |
+| --- | --- |
+| Hostname | `webhooks-dev.lilibag.online` |
+| Service type | HTTP |
+| URL | `http://traefik:80` |
+
+Copie o token Docker fornecido pelo Cloudflare para um arquivo local:
+
+```bash
+cp deploy/.env.local-tunnel.example deploy/.env.local-tunnel
+```
+
+No PowerShell:
+
+```powershell
+Copy-Item deploy/.env.local-tunnel.example deploy/.env.local-tunnel
+```
+
+Preencha apenas `CLOUDFLARE_TUNNEL_TOKEN` e inicie o perfil adicional:
+
+```bash
+docker compose --env-file .env --env-file deploy/.env.local-tunnel \
+  -f deploy/docker-compose.local-traefik.yml --profile tunnel up --build -d
+```
+
+Gere uma nova URL de webhook no painel depois de iniciar o tunnel. Ela usara
+`https://webhooks-dev.lilibag.online/...` e podera receber eventos reais na sua
+maquina. O Traefik aceita nesse hostname somente `POST /v1/webhooks/*`; o
+painel, a API administrativa e o dashboard continuam locais.
+
 ## Parar
 
 ```bash

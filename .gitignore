@@ -3,7 +3,9 @@ dist/
 .env
 .env.local
 .env.*
+deploy/.env.local-tunnel
 !.env.example
+!deploy/.env.local-tunnel.example
 !deploy/.env.production.example
 !deploy/.env.swarm.example
 coverage/
