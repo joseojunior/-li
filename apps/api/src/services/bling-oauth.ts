@@ -72,7 +72,7 @@ export async function saveBlingConnection(organizationId: string, input: z.infer
   );
   await pool.query(
     `INSERT INTO audit_logs (organization_id, actor_type, action, entity_type, entity_id)
-     VALUES ($1, 'user', 'bling.connection_saved', 'bling_connection', $1)`,
+     VALUES ($1, 'user', 'bling.connection_saved', 'bling_connection', $1::text)`,
     [organizationId]
   );
   return toPublicConnectionStatus(result.rows[0]);
