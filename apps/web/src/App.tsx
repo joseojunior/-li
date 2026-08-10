@@ -112,7 +112,7 @@ function TraceDashboard({ onError }: { onError: (message: string) => void }) {
   const [summary, setSummary] = useState<OperationTraceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'webhook' | 'queue' | 'agent' | 'failed'>('all');
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
   const refresh = async () => {
     setLoading(true);
     try {
@@ -123,20 +123,17 @@ function TraceDashboard({ onError }: { onError: (message: string) => void }) {
     finally { setLoading(false); }
   };
   useEffect(() => { void refresh(); }, []);
-  const visible = traces.filter((trace) => filter === 'all' || filter === 'failed' ? (filter === 'failed' ? trace.status === 'failed' : true) : trace.event_type.startsWith(`${filter}.`));
-  const selectedTrace = visible.find((trace) => trace.id === selectedTraceId) ?? visible[0] ?? null;
-  const executionEvents = useMemo(() => {
-    if (!selectedTrace) return [];
-    const traceKey = selectedTrace.conversation_id ? `conversation:${selectedTrace.conversation_id}` : selectedTrace.agent_run_id ? `run:${selectedTrace.agent_run_id}` : `event:${selectedTrace.id}`;
-    return traces.filter((trace) => (trace.conversation_id ? `conversation:${trace.conversation_id}` : trace.agent_run_id ? `run:${trace.agent_run_id}` : `event:${trace.id}`) === traceKey).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || traceEventOrder(a.event_type) - traceEventOrder(b.event_type));
-  }, [selectedTrace, traces]);
-  return <section className="trace-dashboard">
+  const executions = useMemo(() => buildTraceExecutions(traces), [traces]);
+  const visibleExecutions = executions.filter((execution) => matchesTraceFilter(execution, filter));
+  const selectedExecution = visibleExecutions.find((execution) => execution.id === selectedExecutionId) ?? null;
+  return <TraceExecutionList summary={summary} loading={loading} filter={filter} executions={visibleExecutions} selectedExecution={selectedExecution} onRefresh={refresh} onFilterChange={(nextFilter) => { setFilter(nextFilter); setSelectedExecutionId(null); }} onSelect={setSelectedExecutionId} onClose={() => setSelectedExecutionId(null)} />;
+  /*
     <header className="page-header"><div><p className="eyebrow">Observabilidade</p><h1>Trace operacional</h1><p className="page-description">Acompanhe cada etapa sem expor conteúdo, credenciais ou tokens das clientes.</p></div><div className="header-actions"><span className="metric"><strong>{summary?.total ?? 0}</strong> eventos · 24h</span><button className="button secondary" onClick={() => void refresh()} disabled={loading}>{loading ? 'Atualizando...' : 'Atualizar'}</button></div></header>
     <div className="trace-metrics"><TraceMetric label="Webhooks" value={summary?.webhook ?? 0} hint="recebidos nas últimas 24h" tone="webhook" /><TraceMetric label="Fila" value={summary?.queue ?? 0} hint="processamentos agendados" tone="queue" /><TraceMetric label="Agente" value={summary?.agent ?? 0} hint="execuções e decisões" tone="agent" /><TraceMetric label="Falhas" value={summary?.failed ?? 0} hint="exigem atenção" tone={summary?.failed ? 'failed' : 'safe'} /></div>
     <div className="trace-toolbar" aria-label="Filtrar trace"><strong>Eventos recentes</strong><div>{(['all', 'webhook', 'queue', 'agent', 'failed'] as const).map((item) => <button key={item} type="button" className={filter === item ? 'selected' : ''} onClick={() => setFilter(item)}>{traceFilterLabel(item)}</button>)}</div></div>
     <section className="trace-list">{!loading && visible.length === 0 ? <Empty title="Nenhum trace neste filtro" text="Os próximos webhooks, execuções e filas aparecerão aqui automaticamente." /> : visible.map((trace) => <article className={`trace-row ${trace.status}`} key={trace.id}><span className={`trace-icon ${trace.event_type.split('.')[0]}`}>{traceIcon(trace.event_type)}</span><div className="trace-copy"><div><strong>{traceEventLabel(trace.event_type)}</strong><span className={`trace-status ${trace.status}`}>{traceStatusLabel(trace.status)}</span></div><p>{traceDetail(trace)}{trace.contact_name || trace.phone_e164 ? ` · ${trace.contact_name ?? trace.phone_e164}` : ''}{trace.channel_name ? ` · ${trace.channel_name}` : ''}</p></div><time>{formatDate(trace.created_at)} · {formatTime(trace.created_at)}</time></article>)}</section>
     {!loading && visible.length > 0 && <TraceExecutionDetail trace={selectedTrace} events={executionEvents} options={visible.slice(0, 10)} onSelect={setSelectedTraceId} />}
-  </section>;
+  */
 }
 
 function TraceExecutionDetail({ trace, events, options, onSelect }: { trace: OperationTrace | null; events: OperationTrace[]; options: OperationTrace[]; onSelect: (id: string) => void }) {
@@ -145,6 +142,52 @@ function TraceExecutionDetail({ trace, events, options, onSelect }: { trace: Ope
   const completedAt = events.at(-1) ? new Date(events.at(-1)!.created_at).getTime() : startedAt;
   return <section className="trace-detail"><header className="trace-detail-header"><div><p className="eyebrow">Detalhe da execução</p><h2>{trace.contact_name ?? trace.phone_e164 ?? 'Conversa sem identificação'}</h2><p>{trace.channel_name ?? 'Canal não informado'} · {events.length} etapa{events.length === 1 ? '' : 's'} · {formatTraceDuration(completedAt - startedAt)}</p></div><span className={`trace-status ${trace.status}`}>{traceStatusLabel(trace.status)}</span></header><div className="trace-run-picker" aria-label="Selecionar execução">{options.map((option) => <button type="button" className={option.id === trace.id ? 'selected' : ''} key={option.id} onClick={() => onSelect(option.id)}>{traceEventLabel(option.event_type)} · {formatTime(option.created_at)}</button>)}</div><div className="trace-flow" aria-label="Linha do tempo da execução">{events.map((event, index) => <article className={`trace-step ${event.status}`} key={event.id}><span className={`trace-icon ${event.event_type.split('.')[0]}`}>{traceIcon(event.event_type)}</span><div><div className="trace-step-topline"><strong>{traceEventLabel(event.event_type)}</strong><time>{formatTime(event.created_at)}</time></div><p>{traceDetail(event)}</p>{index > 0 && <small>{formatTraceGap(new Date(event.created_at).getTime() - new Date(events[index - 1].created_at).getTime())} após a etapa anterior</small>}</div></article>)}</div><footer className="trace-detail-meta"><span>Execução {trace.agent_run_id ? trace.agent_run_id.slice(0, 8) : 'operacional'}</span><span>Conteúdo e credenciais permanecem ocultos</span></footer></section>;
 }
+
+type TraceFilter = 'all' | 'webhook' | 'queue' | 'agent' | 'failed';
+type TraceExecution = { id: string; main: OperationTrace; events: OperationTrace[]; status: OperationTrace['status'] };
+
+function TraceExecutionList({ summary, loading, filter, executions, selectedExecution, onRefresh, onFilterChange, onSelect, onClose }: { summary: OperationTraceSummary | null; loading: boolean; filter: TraceFilter; executions: TraceExecution[]; selectedExecution: TraceExecution | null; onRefresh: () => Promise<void>; onFilterChange: (filter: TraceFilter) => void; onSelect: (id: string) => void; onClose: () => void }) {
+  return <section className="trace-dashboard">
+    <header className="page-header"><div><p className="eyebrow">Observabilidade</p><h1>Trace operacional</h1><p className="page-description">Uma linha por execucao. Abra apenas a que precisa investigar.</p></div><div className="header-actions"><span className="metric"><strong>{summary?.total ?? 0}</strong> eventos · 24h</span><button className="button secondary" onClick={() => void onRefresh()} disabled={loading}>{loading ? 'Atualizando...' : 'Atualizar'}</button></div></header>
+    <div className="trace-metrics"><TraceMetric label="Webhooks" value={summary?.webhook ?? 0} hint="recebidos nas ultimas 24h" tone="webhook" /><TraceMetric label="Fila" value={summary?.queue ?? 0} hint="processamentos agendados" tone="queue" /><TraceMetric label="Agente" value={summary?.agent ?? 0} hint="execucoes e decisoes" tone="agent" /><TraceMetric label="Falhas" value={summary?.failed ?? 0} hint="exigem atencao" tone={summary?.failed ? 'failed' : 'safe'} /></div>
+    <div className="trace-toolbar" aria-label="Filtrar trace"><strong>Execucoes recentes</strong><div>{(['all', 'webhook', 'queue', 'agent', 'failed'] as const).map((item) => <button key={item} type="button" className={filter === item ? 'selected' : ''} onClick={() => onFilterChange(item)}>{traceFilterLabel(item)}</button>)}</div></div>
+    <section className="trace-list">{!loading && executions.length === 0 ? <Empty title="Nenhuma execucao neste filtro" text="Os proximos webhooks e processamentos aparecerao aqui automaticamente." /> : executions.map((execution) => <button type="button" className={`trace-row ${execution.status} ${selectedExecution?.id === execution.id ? 'selected' : ''}`} key={execution.id} onClick={() => onSelect(execution.id)}><span className={`trace-icon ${execution.main.event_type.split('.')[0]}`}>{traceIcon(execution.main.event_type)}</span><span className="trace-copy"><span><strong>{traceEventLabel(execution.main.event_type)}</strong><span className={`trace-status ${execution.status}`}>{traceStatusLabel(execution.status)}</span></span><p>{traceDetail(execution.main)}{execution.main.contact_name || execution.main.phone_e164 ? ` · ${execution.main.contact_name ?? execution.main.phone_e164}` : ''}{execution.main.channel_name ? ` · ${execution.main.channel_name}` : ''}<em>{execution.events.length} etapa{execution.events.length === 1 ? '' : 's'}</em></p></span><time>{formatDate(execution.main.created_at)} · {formatTime(execution.main.created_at)}</time><span className="trace-open" aria-hidden="true">›</span></button>)}</section>
+    {selectedExecution && <TraceExecutionPanel execution={selectedExecution} onClose={onClose} />}
+  </section>;
+}
+
+function TraceExecutionPanel({ execution, onClose }: { execution: TraceExecution; onClose: () => void }) {
+  const { main: trace, events, status } = execution;
+  const startedAt = new Date(events[0].created_at).getTime();
+  const completedAt = new Date(events.at(-1)!.created_at).getTime();
+  return <section className="trace-detail"><header className="trace-detail-header"><div><p className="eyebrow">Detalhe da execucao</p><h2>{trace.contact_name ?? trace.phone_e164 ?? 'Conversa sem identificacao'}</h2><p>{trace.channel_name ?? 'Canal nao informado'} · {events.length} etapa{events.length === 1 ? '' : 's'} · {formatTraceDuration(completedAt - startedAt)}</p></div><div className="trace-detail-actions"><span className={`trace-status ${status}`}>{traceStatusLabel(status)}</span><button type="button" className="trace-close" onClick={onClose}>Fechar</button></div></header><div className="trace-flow" aria-label="Linha do tempo da execucao">{events.map((event, index) => <article className={`trace-step ${event.status}`} key={event.id}><span className={`trace-icon ${event.event_type.split('.')[0]}`}>{traceIcon(event.event_type)}</span><div><div className="trace-step-topline"><strong>{traceEventLabel(event.event_type)}</strong><time>{formatTime(event.created_at)}</time></div><p>{traceDetail(event)}</p>{index > 0 && <small>{formatTraceGap(new Date(event.created_at).getTime() - new Date(events[index - 1].created_at).getTime())} apos a etapa anterior</small>}</div></article>)}</div><footer className="trace-detail-meta"><span>Execucao {trace.agent_run_id ? trace.agent_run_id.slice(0, 8) : 'operacional'}</span><span>Conteudo e credenciais permanecem ocultos</span></footer></section>;
+}
+
+function buildTraceExecutions(traces: OperationTrace[]): TraceExecution[] {
+  const grouped = new Map<string, OperationTrace[]>();
+  for (const trace of traces) {
+    const key = trace.conversation_id ? `conversation:${trace.conversation_id}` : trace.agent_run_id ? `run:${trace.agent_run_id}` : `event:${trace.id}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), trace]);
+  }
+  const executions: TraceExecution[] = [];
+  for (const [key, events] of grouped) {
+    const ordered = [...events].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || traceEventOrder(a.event_type) - traceEventOrder(b.event_type));
+    let current: OperationTrace[] = [];
+    for (const event of ordered) {
+      if (current.length > 0 && isTraceMainEvent(event)) {
+        executions.push(toTraceExecution(key, current));
+        current = [];
+      }
+      current.push(event);
+    }
+    if (current.length > 0) executions.push(toTraceExecution(key, current));
+  }
+  return executions.sort((a, b) => new Date(b.main.created_at).getTime() - new Date(a.main.created_at).getTime());
+}
+
+function isTraceMainEvent(trace: OperationTrace) { return trace.event_type === 'webhook.received' || trace.event_type === 'webhook.simulated' || trace.event_type === 'webhook.duplicate'; }
+function toTraceExecution(key: string, events: OperationTrace[]): TraceExecution { const status = events.some((event) => event.status === 'failed') ? 'failed' : events.at(-1)?.status ?? events[0].status; return { id: `${key}:${events[0].id}`, main: events[0], events, status }; }
+function matchesTraceFilter(execution: TraceExecution, filter: TraceFilter) { if (filter === 'all') return true; if (filter === 'failed') return execution.status === 'failed'; return execution.events.some((event) => event.event_type.startsWith(`${filter}.`)); }
 
 function TraceMetric({ label, value, hint, tone }: { label: string; value: number; hint: string; tone: string }) {
   return <article className={`trace-metric ${tone}`}><small>{label}</small><strong>{value}</strong><span>{hint}</span></article>;
