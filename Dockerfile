@@ -20,6 +20,8 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+# SQL migrations are loaded at runtime by the migration command.
+COPY --from=build /app/apps/api/src/db/migrations ./apps/api/dist/db/migrations
 RUN addgroup -S lilibag && adduser -S lilibag -G lilibag
 USER lilibag
 EXPOSE 3000

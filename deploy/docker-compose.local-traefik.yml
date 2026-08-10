@@ -1,0 +1,136 @@
+name: lilibag-local
+
+services:
+  traefik:
+    # Docker Desktop currently ships Docker Engine 29, which requires a
+    # Traefik release with a modern Docker API client.
+    image: traefik:v3.6.16
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=lilibag_local
+      - --entrypoints.web.address=:80
+      - --log.level=INFO
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [lilibag_local]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: lilibag
+      POSTGRES_USER: lilibag
+      POSTGRES_PASSWORD: lilibag
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lilibag -d lilibag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data
+    networks: [lilibag_local]
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - local_redis_data:/data
+    networks: [lilibag_local]
+
+  migrate:
+    image: lilibag-local-api
+    build:
+      context: ..
+      target: api
+    command: node apps/api/dist/db/migrate.js
+    env_file: ../.env
+    environment: &app_environment
+      DATABASE_URL: postgresql://lilibag:lilibag@postgres:5432/lilibag
+      REDIS_URL: redis://redis:6379/3
+      TRUST_PROXY: "true"
+      WEB_APP_ORIGIN: http://app.lilibag.localhost
+      APP_PUBLIC_URL: http://api.lilibag.localhost
+      WEBHOOK_PUBLIC_URL: http://webhooks.lilibag.localhost
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+    networks: [lilibag_local]
+
+  api:
+    image: lilibag-local-api
+    env_file: ../.env
+    environment: *app_environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=lilibag_local
+      - traefik.http.routers.lilibag-local-api.rule=Host(`api.lilibag.localhost`)
+      - traefik.http.routers.lilibag-local-api.entrypoints=web
+      - traefik.http.routers.lilibag-local-api.service=lilibag-local-api
+      - traefik.http.services.lilibag-local-api.loadbalancer.server.port=3000
+      - traefik.http.routers.lilibag-local-webhooks.rule=Host(`webhooks.lilibag.localhost`) && PathPrefix(`/v1/webhooks/`)
+      - traefik.http.routers.lilibag-local-webhooks.entrypoints=web
+      - traefik.http.routers.lilibag-local-webhooks.service=lilibag-local-api
+    networks: [lilibag_local]
+
+  worker:
+    image: lilibag-local-api
+    command: node apps/api/dist/worker.js
+    env_file: ../.env
+    environment: *app_environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [lilibag_local]
+
+  web:
+    image: lilibag-local-web
+    build:
+      context: ..
+      target: web-swarm
+      args:
+        VITE_API_BASE_URL: http://api.lilibag.localhost
+    depends_on:
+      api:
+        condition: service_started
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=lilibag_local
+      - traefik.http.routers.lilibag-local-app.rule=Host(`app.lilibag.localhost`)
+      - traefik.http.routers.lilibag-local-app.entrypoints=web
+      - traefik.http.routers.lilibag-local-app.service=lilibag-local-app
+      - traefik.http.services.lilibag-local-app.loadbalancer.server.port=80
+    networks: [lilibag_local]
+
+networks:
+  lilibag_local:
+    name: lilibag_local
+
+volumes:
+  local_postgres_data:
+  local_redis_data:
