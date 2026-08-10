@@ -18,9 +18,13 @@
 .trace-close { background: #fff; border: 1px solid #dce4dd; border-radius: 6px; color: #53645a; cursor: pointer; font-size: 11px; font-weight: 750; padding: 6px 9px; }
 .trace-close:hover { background: #f2f5f2; }
 
+.chatai-connection-test { align-items: end; background: #f7faf7; border: 1px solid #dce8df; border-radius: 8px; display: grid; gap: 12px; grid-template-columns: minmax(220px, 1fr) minmax(180px, .7fr) auto; margin: 18px 0; padding: 16px; }
+.chatai-connection-test h3 { color: #314b3f; font-family: Georgia, serif; font-size: 17px; font-weight: 500; margin: 3px 0; }.chatai-connection-test p { color: #6f7d74; font-size: 11px; margin: 0; }.chatai-connection-test label { color: #506057; display: grid; font-size: 11px; font-weight: 750; gap: 6px; }.chatai-connection-test input { background: #fff; border: 1px solid #d5e0d7; border-radius: 6px; min-height: 36px; padding: 0 10px; }.chatai-connection-test .connection-test-result { color: #347449; font-weight: 700; grid-column: 1 / -1; }
+
 @media (max-width: 800px) {
   .trace-row { grid-template-columns: 34px minmax(0, 1fr) 16px; }
   .trace-row time { grid-column: 2; }
   .trace-open { grid-column: 3; grid-row: 1; }
   .trace-detail-actions { align-self: start; }
+  .chatai-connection-test { align-items: stretch; grid-template-columns: 1fr; }.chatai-connection-test .button { width: 100%; }
 }

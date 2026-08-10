@@ -25,6 +25,15 @@ function mediaType(mimeType: string | undefined): 'image' | 'audio' | 'video' | 
   return 'document';
 }
 
+function mediaEndpoint(type: ReturnType<typeof mediaType>): string {
+  return ({
+    image: '/api/messages/sendurlimage',
+    audio: '/api/messages/sendurlaudio',
+    video: '/api/messages/sendurlvideo',
+    document: '/api/messages/sendurldocument'
+  } as const)[type];
+}
+
 function responseId(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const record = value as Record<string, unknown>;
@@ -41,7 +50,7 @@ export class ChatAiChannelAdapter implements ChannelAdapter {
     const recipient = normalizedRecipient(message.recipient);
     const responseIds: string[] = [];
     if (message.body.trim()) {
-      responseIds.push(await this.post('/api/messages/sendOfficialData', {
+      responseIds.push(await this.post('/api/messages/send', {
         number: recipient,
         openTicket: 0,
         queueId: this.connection.queueId,
@@ -49,13 +58,13 @@ export class ChatAiChannelAdapter implements ChannelAdapter {
       }));
     }
     for (const media of message.media) {
-      responseIds.push(await this.post('/api/messages/official/sendMediaByURL', {
+      const type = mediaType(media.mimeType);
+      responseIds.push(await this.post(mediaEndpoint(type), {
         number: recipient,
-        type: mediaType(media.mimeType),
+        mimetype: media.mimeType,
         caption: message.body || undefined,
-        fileName: media.filename || undefined,
-        openTicket: 0,
-        queueId: this.connection.queueId,
+        filename: media.filename || undefined,
+        ...(type === 'audio' ? { ptt: false } : {}),
         body: media.url
       }));
     }
@@ -63,7 +72,20 @@ export class ChatAiChannelAdapter implements ChannelAdapter {
     return { status: 'sent', providerMessageIds: responseIds };
   }
 
+  async validateRecipient(recipient: string): Promise<{ exists: boolean; jid?: string }> {
+    const payload = await this.request('/api/isValid', { number: normalizedRecipient(recipient) });
+    if (!payload || typeof payload !== 'object') throw new Error('chatai_invalid_validation_response');
+    const record = payload as Record<string, unknown>;
+    if (typeof record.exists !== 'boolean') throw new Error('chatai_invalid_validation_response');
+    return { exists: record.exists, jid: typeof record.jid === 'string' ? record.jid : undefined };
+  }
+
   private async post(path: string, body: Record<string, unknown>): Promise<string> {
+    const payload = await this.request(path, body);
+    return responseId(payload) ?? crypto.randomUUID();
+  }
+
+  private async request(path: string, body: Record<string, unknown>): Promise<unknown> {
     const response = await fetch(urlFor(this.connection.backendUrl, path), {
       method: 'POST',
       headers: { authorization: `Bearer ${this.connection.apiToken}`, 'content-type': 'application/json' },
@@ -72,7 +94,6 @@ export class ChatAiChannelAdapter implements ChannelAdapter {
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) throw new Error(`chatai_request_failed:${response.status}`);
-    return responseId(payload) ?? crypto.randomUUID();
+    return payload;
   }
 }
-

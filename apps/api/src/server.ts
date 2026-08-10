@@ -7,6 +7,7 @@ import { allowLoginAttempt, createSession, requirePanelRole, requirePanelUser, r
 import { hashPassword, verifyPassword } from './auth/passwords.js';
 import { normalizeChatAiWebhook } from './channels/chatai-webhook.js';
 import { createChatAiSimulationPayload } from './channels/chatai-simulation.js';
+import { ChatAiChannelAdapter } from './channels/chatai.js';
 import { config } from './config.js';
 import { pool } from './db/client.js';
 import { blingQueue, conversationQueue, outboundQueue, publishTrace, redis, scheduleBlingJob, scheduleConversation, scheduleOutbound } from './queue.js';
@@ -14,7 +15,7 @@ import { requireAdminKey, requireInboundSecret, requirePanelOrigin } from './sec
 import { catalogSyncRequestSchema, listBlingCatalogSyncRuns, requestBlingCatalogSync } from './services/bling.js';
 import { beginBlingAuthorization, blingConnectionInputSchema, completeBlingAuthorization, getBlingConnectionStatus, saveBlingConnection } from './services/bling-oauth.js';
 import { addProductMedia, createProduct, productInputSchema, productMediaInputSchema, productUpdateSchema, removeProductMedia, searchProducts, updateProduct } from './services/catalog.js';
-import { channelProcessingSchema, chatAiConnectionSchema, chatAiWebhookUrl, generateChatAiWebhook, getPersistedChatAiWebhookUrl, saveChannelProcessing, saveChatAiConnection, validChatAiWebhookToken } from './services/channel-connections.js';
+import { channelProcessingSchema, chatAiConnectionSchema, chatAiWebhookUrl, generateChatAiWebhook, getChatAiConnection, getPersistedChatAiWebhookUrl, saveChannelProcessing, saveChatAiConnection, validChatAiWebhookToken } from './services/channel-connections.js';
 import { assertChannelAccess, channelInputSchema, createChatAiChannel, listOrganizationChannels } from './services/channels.js';
 import { handoffConversation, handoffSchema, resumeConversation } from './services/handoff.js';
 import { ingestInbound, inboundMessageSchema } from './services/inbound.js';
@@ -380,6 +381,16 @@ app.post('/v1/panel/channels/:channelId/chatai', { preHandler: [requirePanelUser
     webhookUrl,
     webhookUrlAvailable: Boolean(webhookUrl)
   });
+});
+
+app.post('/v1/panel/channels/:channelId/chatai/test', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request, reply) => {
+  const params = z.object({ channelId: z.string().uuid() }).parse(request.params);
+  const body = z.object({ phoneE164: z.string().min(10).max(20) }).parse(request.body);
+  await assertChannelAccess(params.channelId, request.panelUser!.organizationId);
+  const connection = await getChatAiConnection(params.channelId);
+  if (!connection) return reply.code(409).send({ error: 'chatai_connection_not_configured' });
+  const result = await new ChatAiChannelAdapter(connection).validateRecipient(body.phoneE164);
+  return { connected: true, recipientExists: result.exists, jid: result.jid ?? null };
 });
 
 app.post('/v1/panel/channels/:channelId/webhook', { preHandler: [requirePanelUser, requirePanelRole('owner', 'admin')] }, async (request, reply) => {

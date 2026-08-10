@@ -81,6 +81,7 @@ export const api = {
   simulateChatAiInbound: (channelId: string, input: { message: string; contactName: string; phoneE164: string; queueId: number }) => request<{ accepted: boolean; duplicate: boolean; conversationId: string; normalized: { type: string; body?: string; externalContactId: string } }>(`/v1/panel/channels/${channelId}/simulate-inbound`, { method: 'POST', body: JSON.stringify(input) }),
   saveChatAiProcessing: (channelId: string, input: { processingDelayMs: number }) => request(`/v1/panel/channels/${channelId}/processing`, { method: 'PUT', body: JSON.stringify(input) }),
   saveChatAiChannelConnection: (channelId: string, input: { backendUrl: string; apiToken: string; queueId: number; processingDelayMs: number }) => request<ChatAiConnectionResult>(`/v1/panel/channels/${channelId}/chatai`, { method: 'POST', body: JSON.stringify(input) }),
+  testChatAiChannelConnection: (channelId: string, phoneE164: string) => request<{ connected: boolean; recipientExists: boolean; jid: string | null }>(`/v1/panel/channels/${channelId}/chatai/test`, { method: 'POST', body: JSON.stringify({ phoneE164 }) }),
   aiConfiguration: () => request<AiConfiguration>('/v1/panel/ai/configuration'),
   saveOpenAiKey: (apiKey: string) => request<{ configured: boolean }>('/v1/panel/ai/openai-key', { method: 'POST', body: JSON.stringify({ apiKey }) }),
   updateAiAgent: (agentKey: AgentKey, input: { model: AgentModel; enabled: boolean }) => request<AiAgentConfiguration>(`/v1/panel/ai/agents/${agentKey}`, { method: 'PUT', body: JSON.stringify(input) }),
