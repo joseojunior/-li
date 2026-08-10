@@ -14,6 +14,8 @@
     "local:traefik:up": "docker compose -f deploy/docker-compose.local-traefik.yml up --build -d",
     "local:traefik:down": "docker compose -f deploy/docker-compose.local-traefik.yml down",
     "local:traefik:logs": "docker compose -f deploy/docker-compose.local-traefik.yml logs -f",
+    "local:tunnel:up": "docker compose --env-file .env --env-file deploy/.env.local-tunnel -f deploy/docker-compose.local-traefik.yml --profile tunnel up --build -d",
+    "local:tunnel:down": "docker compose --env-file .env --env-file deploy/.env.local-tunnel -f deploy/docker-compose.local-traefik.yml --profile tunnel down",
     "dev:api": "npm run dev --workspace @lilibag/api",
     "dev:worker": "npm run dev:worker --workspace @lilibag/api",
     "dev:web": "npm run dev --workspace @lilibag/web",

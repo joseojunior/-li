@@ -67,6 +67,12 @@ docker compose --env-file .env --env-file deploy/.env.local-tunnel \
   -f deploy/docker-compose.local-traefik.yml --profile tunnel up --build -d
 ```
 
+No PowerShell, depois de preencher o token, o atalho equivalente e:
+
+```powershell
+npm run local:tunnel:up
+```
+
 Gere uma nova URL de webhook no painel depois de iniciar o tunnel. Ela usara
 `https://webhooks.lilibag.online/...` e podera receber eventos reais na sua
 maquina. O painel estara em `https://app.lilibag.online` e a API em
