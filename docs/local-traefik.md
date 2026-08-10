@@ -31,16 +31,22 @@ Nao exponha a porta `8080` ou use esta composicao fora da maquina local.
 
 ## Receber eventos reais com Cloudflare Tunnel
 
-Use um tunnel de desenvolvimento separado, nunca o tunnel ou hostname da VPS.
+Use um tunnel de desenvolvimento separado, nunca o tunnel da VPS. Se os
+hostnames abaixo ja apontarem para a VPS, nao os associe simultaneamente ao
+tunnel local: um hostname deve ter apenas uma origem ativa.
 No painel Cloudflare, em **Networking > Tunnels**, crie um tunnel remotely
 managed chamado, por exemplo, `lilibag-local-dev`. Em **Published application**,
 adicione:
 
 | Campo | Valor |
 | --- | --- |
-| Hostname | `webhooks-dev.lilibag.online` |
+| Hostname | `app.lilibag.online` |
 | Service type | HTTP |
 | URL | `http://traefik:80` |
+
+Adicione tambem `api.lilibag.online` e `webhooks.lilibag.online`, ambos para o
+mesmo servico `http://traefik:80`. O Traefik separa internamente cada host e
+deixa o endpoint de webhook restrito ao prefixo `/v1/webhooks/*`.
 
 Copie o token Docker fornecido pelo Cloudflare para um arquivo local:
 
@@ -62,9 +68,10 @@ docker compose --env-file .env --env-file deploy/.env.local-tunnel \
 ```
 
 Gere uma nova URL de webhook no painel depois de iniciar o tunnel. Ela usara
-`https://webhooks-dev.lilibag.online/...` e podera receber eventos reais na sua
-maquina. O Traefik aceita nesse hostname somente `POST /v1/webhooks/*`; o
-painel, a API administrativa e o dashboard continuam locais.
+`https://webhooks.lilibag.online/...` e podera receber eventos reais na sua
+maquina. O painel estara em `https://app.lilibag.online` e a API em
+`https://api.lilibag.online`. Proteja esse tunnel de desenvolvimento com
+Cloudflare Access se ele permanecer ativo; o dashboard Traefik continua local.
 
 ## Parar
 
